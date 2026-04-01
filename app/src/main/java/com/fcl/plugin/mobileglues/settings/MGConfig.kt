@@ -1,171 +1,179 @@
 package com.fcl.plugin.mobileglues.settings
 
 import android.content.Context
-import android.os.Build
-import android.os.Environment
-import android.provider.DocumentsContract
-import androidx.lifecycle.LifecycleOwner
-import androidx.lifecycle.lifecycleScope
-import com.fcl.plugin.mobileglues.MainActivity
 import com.fcl.plugin.mobileglues.utils.Constants
-import com.fcl.plugin.mobileglues.utils.FileUtils
 import com.google.gson.Gson
 import com.google.gson.JsonObject
 import com.google.gson.JsonParser
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import java.io.File
-import java.io.IOException
-import java.nio.file.Files
-import kotlin.properties.Delegates
 
-data class MGConfig(val context: Context) {
-    // 使用 Delegates.observable 委托属性
-    var enableANGLE: Int by Delegates.observable(1) { _, old, new -> if (old != new) save() }
-    var enableNoError: Int by Delegates.observable(0) { _, old, new -> if (old != new) save() }
-    var enableExtTimerQuery: Int by Delegates.observable(1) { _, old, new -> if (old != new) save() }
-    var enableExtComputeShader: Int by Delegates.observable(0) { _, old, new -> if (old != new) save() }
-    var enableExtDirectStateAccess: Int by Delegates.observable(0) { _, old, new -> if (old != new) save() }
-    var maxGlslCacheSize: Int by Delegates.observable(32) { _, old, new ->
-        if (old != new) {
-            if (new == -1) clearCacheFile()
-            save()
-        }
-    }
-    var multidrawMode: Int by Delegates.observable(0) { _, old, new -> if (old != new) save() }
-    var angleDepthClearFixMode: Int by Delegates.observable(0) { _, old, new -> if (old != new) save() }
-    var customGLVersion: Int by Delegates.observable(0) { _, old, new -> if (old != new) save() }
-    var fsr1Setting: Int by Delegates.observable(0) { _, old, new -> if (old != new) save() }
+/**
+ * MobileGlues 配置类。
+ */
+class MGConfig private constructor(val context: Context, private var isInitializing: Boolean) {
 
-    companion object {
-        public var cacheConfigPath: String? = null
-        public var cacheMGDir: File = File("")
+    // 默认构造函数，供正常实例化使用
+    constructor(context: Context) : this(context, false)
 
-        fun loadConfig(context: Context): MGConfig? {
-            val configStr: String = try {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                    MainActivity.MGDirectoryUri?.let { uri ->
-                        val configUri = DocumentsContract.buildDocumentUriUsingTree(
-                            uri,
-                            DocumentsContract.getTreeDocumentId(uri) + "/config.json"
-                        )
-                        FileUtils.readText(context, configUri)
-                    } ?: return null
-                } else {
-                    val configFile = File(Constants.CONFIG_FILE_PATH)
-                    if (!Files.exists(configFile.toPath())) return null
-                    FileUtils.readText(configFile)
-                }
-            } catch (_: Exception) {
-                return null
-            }
+    // ---- 配置字段（UI 触发变更后自动保存） ----
 
-            val config = MGConfig(context) // 使用修改后的构造函数
-            try {
-                // 将从文件读取的配置赋值给新创建的 config 对象
-                Gson().fromJson(configStr, JsonObject::class.java).apply {
-                    config.enableANGLE = this.get("enableANGLE")?.asInt ?: 1
-                    config.enableNoError = this.get("enableNoError")?.asInt ?: 0
-                    config.enableExtTimerQuery = this.get("enableExtTimerQuery")?.asInt ?: 1
-                    config.enableExtComputeShader = this.get("enableExtComputeShader")?.asInt ?: 0
-                    config.enableExtDirectStateAccess =
-                        this.get("enableExtDirectStateAccess")?.asInt ?: 1
-                    config.maxGlslCacheSize = this.get("maxGlslCacheSize")?.asInt ?: 32
-                    config.multidrawMode = this.get("multidrawMode")?.asInt ?: 0
-                    config.angleDepthClearFixMode = this.get("angleDepthClearFixMode")?.asInt ?: 0
-                    config.customGLVersion = this.get("customGLVersion")?.asInt ?: 0
-                    config.fsr1Setting = this.get("fsr1Setting")?.asInt ?: 0
-                }
-
-                // 处理历史遗留问题
-                val obj = JsonParser.parseString(configStr).asJsonObject
-                if (!obj.has("enableExtTimerQuery")) config.enableExtTimerQuery = 1
-
-                if (!obj.has("enableExtDirectStateAccess")) config.enableExtDirectStateAccess = 0
-            } catch (_: Exception) {
-            }
-
-            return config
-        }
-    }
-
-    // 省略 saveConfig 和 save 方法，因为 observable 委托会直接调用 save(context)
-    // 另外，Data Class 的特性不再适用，因为属性委托会改变属性的 getter/setter
-    // 所以我将 data class 关键字移除，并修改了构造函数来接收 Context
-
-    fun deleteConfig() {
-        try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                MainActivity.MGDirectoryUri?.let {
-                    FileUtils.deleteFileViaSAF(context, it, "config.json")
-                }
-            } else {
-                val configFile = File(Environment.getExternalStorageDirectory(), "MG/config.json")
-                if (configFile.exists()) FileUtils.deleteFile(configFile)
-            }
-        } catch (_: Exception) {
-        }
-    }
-
-    private fun clearCacheFile() {
-        (context as LifecycleOwner).lifecycleScope.launch(Dispatchers.IO) {
-            try {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                    val uri = DocumentsContract.buildDocumentUriUsingTree(
-                        MainActivity.MGDirectoryUri,
-                        DocumentsContract.getTreeDocumentId(MainActivity.MGDirectoryUri) + "/glsl_cache.tmp"
-                    )
-                    context.contentResolver?.let {
-                        DocumentsContract.deleteDocument(it, uri)
-                    }
-                } else {
-                    FileUtils.deleteFile(File(Constants.GLSL_CACHE_FILE_PATH))
-                }
-            } catch (_: Exception) {
+    var enableANGLE: Int = 1
+        set(value) {
+            if (field != value) {
+                field = value; saveIfReady()
             }
         }
+
+    var enableNoError: Int = 0
+        set(value) {
+            if (field != value) {
+                field = value; saveIfReady()
+            }
+        }
+
+    var enableExtTimerQuery: Int = 1
+        set(value) {
+            if (field != value) {
+                field = value; saveIfReady()
+            }
+        }
+
+    var enableExtComputeShader: Int = 0
+        set(value) {
+            if (field != value) {
+                field = value; saveIfReady()
+            }
+        }
+
+    var enableExtDirectStateAccess: Int = 0
+        set(value) {
+            if (field != value) {
+                field = value; saveIfReady()
+            }
+        }
+
+    var maxGlslCacheSize: Int = 32
+        set(value) {
+            if (field != value) {
+                field = value
+                if (value == -1) clearCacheFile()
+                saveIfReady()
+            }
+        }
+
+    var multidrawMode: Int = 0
+        set(value) {
+            if (field != value) {
+                field = value; saveIfReady()
+            }
+        }
+
+    var angleDepthClearFixMode: Int = 0
+        set(value) {
+            if (field != value) {
+                field = value; saveIfReady()
+            }
+        }
+
+    var customGLVersion: Int = 0
+        set(value) {
+            if (field != value) {
+                field = value; saveIfReady()
+            }
+        }
+
+    var fsr1Setting: Int = 0
+        set(value) {
+            if (field != value) {
+                field = value; saveIfReady()
+            }
+        }
+
+    // ---- 对外操作 ----
+
+    private fun saveIfReady() {
+        if (!isInitializing) save()
     }
 
-    @Throws(IOException::class)
     fun save() {
-        val configMap = buildConfigMap()
-
-        val configStr = Gson().toJson(configMap)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            val uri = MainActivity.MGDirectoryUri
-                ?: throw IOException("SAF directory not selected")
-            FileUtils.writeText(context, uri, "config.json", configStr, "application/json")
-        } else {
-            FileUtils.writeText(File(Constants.CONFIG_FILE_PATH), configStr)
+        runCatching {
+            val configFile = File(Constants.CONFIG_FILE_PATH)
+            configFile.parentFile?.mkdirs()
+            configFile.writeText(Gson().toJson(buildConfigMap()))
         }
     }
 
     fun saveToCachePath() {
         if (cacheConfigPath == null) {
             val cacheDir = context.externalCacheDir ?: context.cacheDir
-            cacheMGDir = File(cacheDir, "MG")
-            if (!cacheMGDir.exists()) {
-                cacheMGDir.mkdirs()
-            }
+            cacheMGDir = File(cacheDir, "MG").apply { mkdirs() }
             cacheConfigPath = File(cacheMGDir, "config.json").absolutePath
         }
-
-        val configMap = buildConfigMap()
-        FileUtils.writeText(File(cacheConfigPath!!), Gson().toJson(configMap))
+        runCatching {
+            File(cacheConfigPath!!).writeText(Gson().toJson(buildConfigMap()))
+        }
     }
 
-    private fun buildConfigMap(): Map<String, Int> {
-        return mapOf(
-            "enableANGLE" to enableANGLE,
-            "enableNoError" to enableNoError,
-            "enableExtTimerQuery" to enableExtTimerQuery,
-            "enableExtComputeShader" to enableExtComputeShader,
-            "enableExtDirectStateAccess" to enableExtDirectStateAccess,
-            "maxGlslCacheSize" to maxGlslCacheSize,
-            "multidrawMode" to multidrawMode,
-            "angleDepthClearFixMode" to angleDepthClearFixMode,
-            "customGLVersion" to customGLVersion,
-            "fsr1Setting" to fsr1Setting
-        )
+    // ---- 私有辅助 ----
+
+    private fun clearCacheFile() {
+        CoroutineScope(Dispatchers.IO).launch {
+            runCatching { File(Constants.GLSL_CACHE_FILE_PATH).delete() }
+        }
+    }
+
+    private fun buildConfigMap(): Map<String, Int> = mapOf(
+        "enableANGLE" to enableANGLE,
+        "enableNoError" to enableNoError,
+        "enableExtTimerQuery" to enableExtTimerQuery,
+        "enableExtComputeShader" to enableExtComputeShader,
+        "enableExtDirectStateAccess" to enableExtDirectStateAccess,
+        "maxGlslCacheSize" to maxGlslCacheSize,
+        "multidrawMode" to multidrawMode,
+        "angleDepthClearFixMode" to angleDepthClearFixMode,
+        "customGLVersion" to customGLVersion,
+        "fsr1Setting" to fsr1Setting
+    )
+
+    companion object {
+        var cacheConfigPath: String? = null
+        var cacheMGDir: File = File("")
+
+        /**
+         * 从磁盘加载配置，文件不存在或解析失败时返回 null。
+         */
+        fun loadConfig(context: Context): MGConfig? {
+            val configFile = File(Constants.CONFIG_FILE_PATH)
+            if (!configFile.exists()) return null
+
+            val configStr = runCatching { configFile.readText() }.getOrNull() ?: return null
+
+            return runCatching {
+                val obj: JsonObject = JsonParser.parseString(configStr).asJsonObject
+                // 开启 isInitializing 拦截，防止在读取 JSON 赋值时触发大量冗余的 save() 磁盘 I/O
+                val config = MGConfig(context, isInitializing = true)
+                config.applyFromJson(obj)
+                config.isInitializing = false
+                config
+            }.getOrNull()
+        }
+
+        private fun MGConfig.applyFromJson(obj: JsonObject) {
+            fun JsonObject.int(key: String, default: Int) = get(key)?.asInt ?: default
+
+            enableANGLE = obj.int("enableANGLE", 1)
+            enableNoError = obj.int("enableNoError", 0)
+            enableExtTimerQuery = obj.int("enableExtTimerQuery", 1)
+            enableExtComputeShader = obj.int("enableExtComputeShader", 0)
+            enableExtDirectStateAccess = obj.int("enableExtDirectStateAccess", 0)
+            maxGlslCacheSize = obj.int("maxGlslCacheSize", 32)
+            multidrawMode = obj.int("multidrawMode", 0)
+            angleDepthClearFixMode = obj.int("angleDepthClearFixMode", 0)
+            customGLVersion = obj.int("customGLVersion", 0)
+            fsr1Setting = obj.int("fsr1Setting", 0)
+        }
     }
 }
