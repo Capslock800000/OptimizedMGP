@@ -1,24 +1,24 @@
-package com.capslock800000.optimizedmg
+package com.fcl.plugin.mobileglues
 
 import android.content.Context
 import android.widget.TextView
-import com.capslock800000.optimizedmg.settings.MGConfig
+import com.fcl.plugin.mobileglues.settings.MGConfig
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 
 object MGInfoGetter {
     init {
-        System.loadLibrary("optimizedmg_info_getter")
+        System.loadLibrary("mobileglues_info_getter")
     }
 
     external fun setenv(key: String, value: String, overwrite: Int): Int
 
-    external fun getOptimizedMGGLInfo(): String
+    external fun getMobileGluesGLInfo(): String
 
     val mgGLInfo: String
         get() = try {
             setenv("MG_PLUGIN_STATUS", 1.toString(), 1)
             setenv("MG_DIR_PATH", MGConfig.cacheMGDir.path, 1)
-            getOptimizedMGGLInfo()
+            getMobileGluesGLInfo()
         } catch (e: Throwable) {
             "Error: ${e.message}"
         }

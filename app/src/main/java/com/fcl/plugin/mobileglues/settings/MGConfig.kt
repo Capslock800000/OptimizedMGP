@@ -1,7 +1,7 @@
-package com.capslock800000.optimizedmg.settings
+package com.fcl.plugin.mobileglues.settings
 
 import android.content.Context
-import com.capslock800000.optimizedmg.utils.Constants
+import com.fcl.plugin.mobileglues.utils.Constants
 import com.google.gson.Gson
 import com.google.gson.JsonObject
 import com.google.gson.JsonParser
@@ -11,7 +11,7 @@ import kotlinx.coroutines.launch
 import java.io.File
 
 /**
- * OptimizedMG 配置类。
+ * MobileGlues 配置类。
  */
 class MGConfig private constructor(val context: Context, private var isInitializing: Boolean) {
 
