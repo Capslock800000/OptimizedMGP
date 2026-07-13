@@ -1,4 +1,4 @@
-name: MobileGlues
+name: Assemble OptimizedMG
 
 on:
   push:
@@ -8,10 +8,8 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
-
+  Setup-and-build:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
@@ -24,7 +22,7 @@ jobs:
       - name: Set repository name as env variable
         run: echo "repository_name=$(echo '${{ github.repository }}' | awk -F '/' '{print $2}')" >> $GITHUB_ENV
 
-      - name: Set Up JDK
+      - name: Set Up OpenJDK17
         uses: actions/setup-java@v4
         with:
           distribution: 'zulu'
