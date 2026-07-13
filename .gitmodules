@@ -1,0 +1,3 @@
+[submodule "MobileGlues"]
+	path = MobileGlues
+	url = git@github.com:Capslock800000/MobileGlues.git
