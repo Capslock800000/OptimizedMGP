@@ -117,7 +117,7 @@ static std::string create_context_and_query() {
             const GLubyte* ext = p_glGetStringi(GL_EXTENSIONS, (GLuint)i);
             if (ext) {
                 const char* extStr = reinterpret_cast<const char*>(ext);
-                if (strcmp(extStr, "GL_MG_optimizedmg") == 0) g_MGQueryCapability.HasMobileGluesExt = true;
+                if (strcmp(extStr, "GL_MG_optimizedmg") == 0) g_MGQueryCapability.HasOptimizedMGExt = true;
                 if (strcmp(extStr, "GL_MG_backend_string_getter_access") == 0) g_MGQueryCapability.BackendStringGetterAccess = true;
                 if (strcmp(extStr, "GL_MG_settings_string_dump") == 0) g_MGQueryCapability.SettingsStringDump = true;
                 out_exts << "  " << reinterpret_cast<const char*>(ext) << "\n";
@@ -128,13 +128,13 @@ static std::string create_context_and_query() {
         out_exts << "Extensions: " << (exts ? reinterpret_cast<const char*>(exts) : "NULL") << "\n";
         if (exts) {
             const char* extStr = reinterpret_cast<const char*>(exts);
-            if (strstr(extStr, " GL_MG_optimizedmg ")) g_MGQueryCapability.HasMobileGluesExt = true;
+            if (strstr(extStr, " GL_MG_optimizedmg ")) g_MGQueryCapability.HasOptimizedMGExt = true;
             if (strstr(extStr, " GL_MG_backend_string_getter_access ")) g_MGQueryCapability.BackendStringGetterAccess = true;
             if (strstr(extStr, " GL_MG_settings_string_dump ")) g_MGQueryCapability.SettingsStringDump = true;
         }
     }
 
-    out << "Is optimizedmg (>=1.3.3): " << (g_MGQueryCapability.HasMobileGluesExt ? "Yes\n" : "No\n");
+    out << "Is optimizedmg (>=1.3.3): " << (g_MGQueryCapability.HasOptimizedMGExt ? "Yes\n" : "No\n");
 
     const GLubyte* renderer = p_glGetString(GL_RENDERER);
     const GLubyte* version = p_glGetString(GL_VERSION);
@@ -196,7 +196,7 @@ static std::string create_context_and_query() {
 
 extern "C"
 JNIEXPORT jstring JNICALL
-Java_com_fcl_plugin_optimizedmg_MGInfoGetter_getMobileGluesGLInfo(JNIEnv *env,
+Java_com_fcl_plugin_optimizedmg_MGInfoGetter_getOptimizedMGGLInfo(JNIEnv *env,
                                                                           jobject thiz) {
     std::string res = create_context_and_query();
     printf("optimizedmg GL Info: \n%s", res.c_str());
