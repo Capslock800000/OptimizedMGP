@@ -26,7 +26,7 @@ fun showAppInfoDialog(context: Context, config: MGConfig?) {
         }
         .setPositiveButton(R.string.dialog_github) { _, _ ->
             context.startActivity(
-                Intent(Intent.ACTION_VIEW, "https://github.com/MobileGL-Dev/OptimizedMG-plugin".toUri())
+                Intent(Intent.ACTION_VIEW, "https://github.com/Capslock800000/OptimizedMGP".toUri())
             )
         }
         .show()
